@@ -1,0 +1,157 @@
+{
+  "site": {
+    "shortName": "SEGM",
+    "nameZh": "空间环境与地质灾害监测课题组",
+    "nameEn": "Space Environment & Geological Hazard Monitoring Group",
+    "institution": "西安科技大学测绘科学与技术学院",
+    "tagline": "感知近地空间，连接科学模型与可靠服务",
+    "description": "面向空间天气监测与高精度定位需求，开展全球电离层精细建模、GNSS近地空间环境监测、多源数据融合与InSAR应用研究。",
+    "email": "chenpeng0123@gmail.com",
+    "address": "陕西省西安市雁塔路58号",
+    "teacherProfile": "https://chxy.xust.edu.cn/info/1170/5020.htm",
+    "collegeUrl": "https://chxy.xust.edu.cn/",
+    "productCloud": "http://8.130.47.186/"
+  },
+  "metrics": [
+    { "value": "近80篇", "label": "SCI / EI 论文" },
+    { "value": "2项", "label": "主持国家自然科学基金" },
+    { "value": "5项", "label": "授权发明专利" },
+    { "value": "2012", "label": "持续开展电离层研究" }
+  ],
+  "researchAreas": [
+    {
+      "code": "01",
+      "title": "全球电离层精细建模",
+      "en": "Global Ionospheric Modeling",
+      "description": "融合地基GNSS、卫星测高、掩星与DORIS等多源观测，建立高精度、高可靠性的全球电离层格网模型。",
+      "keywords": ["GIM", "VTEC", "多源融合"]
+    },
+    {
+      "code": "02",
+      "title": "实时监测与短临预报",
+      "en": "Real-time Monitoring & Forecasting",
+      "description": "研究实时电离层建模、自适应卡尔曼滤波和深度学习VTEC预报，为空间天气与精密定位提供服务。",
+      "keywords": ["Real-time", "Kalman", "Deep Learning"]
+    },
+    {
+      "code": "03",
+      "title": "电离层扰动与空间天气",
+      "en": "Ionospheric Disturbance",
+      "description": "研究磁暴、日食、火山、台风与地震等事件引发的电离层响应及其区域和半球差异。",
+      "keywords": ["Geomagnetic Storm", "Space Weather", "GNSS"]
+    },
+    {
+      "code": "04",
+      "title": "InSAR与地质灾害监测",
+      "en": "InSAR & Geological Hazards",
+      "description": "开展InSAR大气改正、矿区三维沉降反演及地质灾害形变监测方法研究。",
+      "keywords": ["InSAR", "Subsidence", "Atmosphere"]
+    }
+  ],
+  "leader": {
+    "name": "陈鹏",
+    "title": "副教授 · 硕士生导师 · 项目博导",
+    "bio": "2012年毕业于武汉大学测绘学院，获工学博士学位。主要从事GNSS精密数据处理、GNSS近地空间环境及InSAR数据处理与应用研究。2018—2019年在慕尼黑工业大学德国大地测量研究所（DGFI-TUM）访学。",
+    "interests": ["GNSS精密数据处理", "GNSS近地空间环境", "InSAR数据处理及应用"],
+    "roles": ["IAG JWG 4.3.6 工作组成员", "IAG JWG 4.3.7 工作组成员", "陕西省测绘地理信息标准化技术委员会委员"]
+  },
+  "students": [
+    { "cohort": "2026级", "names": ["刘海斌", "樊志通", "杜佳星"], "note": "本硕连读" },
+    { "cohort": "2025级", "names": ["陈洋", "关星瑶", "程奥东", "张宏", "周冬梅"], "note": "硕士研究生" },
+    { "cohort": "2024级", "names": ["李明冬", "苏弘扬", "魏育航", "陈泽瑜"], "note": "硕士研究生" },
+    { "cohort": "2023级", "names": ["黄缤漪", "洪扬", "孙世峥", "马卓尔"], "note": "硕士研究生" }
+  ],
+  "publications": [
+    {
+      "year": 2026,
+      "title": "Water storage changes of lakes and reservoirs across Asia (2018–2023) and their effects in flood control",
+      "authors": "An, Z., Li, Z., Jin, T., Jiang, W., Yuan, P., Liu, K., … & Chen, P.",
+      "journal": "Geophysical Research Letters",
+      "tag": "Nature Index"
+    },
+    {
+      "year": 2025,
+      "title": "Characterizing ionospheric disturbances and hemispheric differences over the Asia-Pacific during the May 2024 geomagnetic storm leveraging multi-instrumental observations",
+      "authors": "Su, H., Chen, P.*, Liu, H., Yao, Y., Li, Z., Zhang, Y., … & Li, M.",
+      "journal": "Journal of Geophysical Research: Space Physics",
+      "tag": "SCI"
+    },
+    {
+      "year": 2025,
+      "title": "Response of the ionosphere to the total solar eclipse in the United States on April 8, 2024",
+      "authors": "Yang, X., Chen, P.*, Yao, Y., & Wu, M.",
+      "journal": "Advances in Space Research",
+      "tag": "SCI"
+    },
+    {
+      "year": 2024,
+      "title": "A new method for global ionospheric real-time modeling integrating ionospheric VTEC short-term forecast results",
+      "authors": "Chen, P.*, Wang, R., Yao, Y., Xiong, M., Zhang, Y., & Yang, X.",
+      "journal": "Journal of Geodesy",
+      "tag": "TOP"
+    },
+    {
+      "year": 2023,
+      "title": "A short-term prediction model of global ionospheric VTEC based on the combination of long short-term memory and convolutional long short-term memory",
+      "authors": "Chen, P.*, Wang, R., Yao, Y., An, Z., & Wang, Z.",
+      "journal": "Journal of Geodesy",
+      "tag": "TOP"
+    },
+    {
+      "year": 2021,
+      "title": "Near real-time global ionospheric modeling based on an adaptive Kalman filter state error covariance matrix determination method",
+      "authors": "Chen, P.*, Liu, H., Schmidt, M., Yao, Y., & Yao, W.",
+      "journal": "IEEE Transactions on Geoscience and Remote Sensing",
+      "tag": "TOP"
+    },
+    {
+      "year": 2021,
+      "title": "Accuracy evaluation of XUST’s global ionospheric products",
+      "authors": "Chen, P.*, Liu, L., Liu, H., & Yao, W.",
+      "journal": "Advances in Space Research",
+      "tag": "SCI"
+    },
+    {
+      "year": 2017,
+      "title": "Global ionosphere maps based on GNSS, satellite altimetry, radio occultation and DORIS",
+      "authors": "Chen, P.*, Yao, Y., & Yao, W.",
+      "journal": "GPS Solutions",
+      "tag": "TOP"
+    }
+  ],
+  "projects": [
+    {
+      "period": "2024—2027",
+      "title": "自适应分辨率高精度全球电离层建模方法研究",
+      "source": "国家自然科学基金面上项目 · 42374037",
+      "status": "在研"
+    },
+    {
+      "period": "2025—2026",
+      "title": "测量机器人监测基准位置超高精度解算与稳定性维持关键技术研究",
+      "source": "陕西省教育厅服务地方专项计划 · 24JE014",
+      "status": "在研"
+    },
+    {
+      "period": "2015—2017",
+      "title": "基于多源数据融合和非负不等式约束的全球电离层精细建模研究",
+      "source": "国家自然科学基金青年项目 · 41404031",
+      "status": "结题"
+    }
+  ],
+  "news": [
+    { "date": "2026-07-21", "title": "XUST事后电离层产品云目录开放", "type": "产品" },
+    { "date": "2026-06-09", "title": "课题组在“经纬论坛·格物致知”分享全球电离层监测前沿", "type": "动态" },
+    { "date": "2026-01-01", "title": "课题组研究成果发表于 Geophysical Research Letters", "type": "论文" }
+  ],
+  "product": {
+    "archiveBaseUrl": "http://8.130.47.186/post_iono",
+    "realtimeBaseUrl": "",
+    "archiveStartYear": 2024,
+    "formats": [
+      { "id": "gim-long", "label": "全球电离层图 · IONEX 长文件名", "cadence": "1小时" },
+      { "id": "gim-short", "label": "全球电离层图 · IONEX 短文件名", "cadence": "1小时" },
+      { "id": "dcb", "label": "差分码偏差 · Bias-SINEX", "cadence": "1天" }
+    ]
+  }
+}
