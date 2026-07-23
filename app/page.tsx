@@ -42,10 +42,10 @@ export default function Home() {
         <section className="realtime-section section-pad">
           <div className="section-heading split-heading light-heading">
             <div><p className="section-kicker">LIVE IONOSPHERE · 实时窗口</p><h2>全球电离层<br />总电子含量</h2></div>
-            <div className="live-copy"><span className="live-pill"><i /> 演示数据流</span><p>展示逻辑延续课题组现有 GIMdisplay：全球等经纬投影、连续 TEC 色带、历元控制。实时产品源接入后可直接切换。</p></div>
+            <div className="live-copy"><span className="live-pill"><i /> IONO00XAN1 实时数据流</span><p>地图沿用课题组 GIMdisplay 的全球等经纬投影、Turbo TEC 色带与高精度海岸线。后台实时接收 IGS SSR 4076.201，并将球谐系数展开为 2.5° × 5° GIM；点击网格可查看该点时间序列。</p></div>
           </div>
           <div className="realtime-frame">
-            <div className="frame-top"><span>XUST / GLOBAL VTEC</span><span>LAT 87.5° → -87.5° · LON -180° → 180°</span></div>
+            <div className="frame-top"><span>XUST / GLOBAL VTEC · LIVE</span><span>LAT 87.5° → −87.5° · LON −180° → 180°</span></div>
             <TecMap />
             <div className="frame-meta"><span>MODEL <strong>SEGM-GIM</strong></span><span>RESOLUTION <strong>2.5° × 5°</strong></span><span>HEIGHT <strong>450 KM</strong></span><Link href="/observatory">进入完整观测台 →</Link></div>
           </div>

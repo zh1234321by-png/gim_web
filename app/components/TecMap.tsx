@@ -1,89 +1,931 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-const continents = [
-  [[-168,70],[-140,60],[-125,48],[-118,32],[-100,20],[-82,24],[-66,45],[-54,54],[-72,70],[-110,74]],
-  [[-82,12],[-70,8],[-54,-10],[-50,-28],[-62,-52],[-74,-44],[-79,-18]],
-  [[-12,35],[3,52],[30,64],[60,58],[95,70],[135,53],[164,58],[178,42],[142,8],[116,1],[102,15],[76,8],[60,28],[34,30],[22,14],[12,34]],
-  [[-18,34],[10,36],[34,28],[48,10],[40,-18],[24,-35],[10,-34],[-4,-12]],
-  [[112,-12],[146,-12],[154,-30],[134,-42],[114,-32]],
-  [[-52,82],[-22,74],[-30,60],[-48,62]],
-];
+type Coastline = Array<[number, number]>;
 
-function palette(value: number) {
-  const stops = [
-    [5, 41, 86], [8, 88, 121], [13, 145, 139], [93, 187, 118],
-    [215, 220, 71], [250, 174, 45], [233, 82, 53], [139, 33, 68],
-  ];
-  const scaled = Math.max(0, Math.min(0.999, value)) * (stops.length - 1);
-  const i = Math.floor(scaled); const t = scaled - i;
-  const a = stops[i], b = stops[Math.min(i + 1, stops.length - 1)];
-  return `rgb(${a.map((v, n) => Math.round(v + (b[n] - v) * t)).join(",")})`;
+type GridMetadata = {
+  lat: number[];
+  lon: number[];
+  shape: [number, number];
+  resolution: { lat: number; lon: number };
+  unit: string;
+};
+
+type GimFrame = {
+  epoch: string;
+  values: number[];
+  min: number;
+  max: number;
+  mean: number;
+  source: {
+    transport?: string;
+    message?: string;
+    caster?: string;
+    mountpoint?: string;
+    providerId?: number;
+    solutionId?: number;
+    qualityTecu?: number;
+    layerHeightsKm?: number[];
+    file?: string;
+  };
+};
+
+type FramesPayload = {
+  schema: string;
+  status: "live" | "sample";
+  generatedAt: string;
+  grid: GridMetadata;
+  frames: GimFrame[];
+  latestIndex: number;
+};
+
+type LatestPayload = {
+  schema: string;
+  status: "live";
+  generatedAt: string;
+  grid: GridMetadata;
+  frame: GimFrame;
+};
+
+type SeriesPoint = {
+  epoch: string;
+  value: number | null;
+};
+
+type SeriesPayload = {
+  schema: string;
+  status: string;
+  unit: string;
+  selected: {
+    lat: number;
+    lon: number;
+    latIndex: number;
+    lonIndex: number;
+  };
+  points: SeriesPoint[];
+};
+
+type Selection = {
+  latIndex: number;
+  lonIndex: number;
+  lat: number;
+  lon: number;
+};
+
+type ConnectionState = "connecting" | "live" | "stale" | "sample" | "offline";
+
+export type RealtimeTelemetry = {
+  state: ConnectionState;
+  epoch: string | null;
+  frameCount: number;
+  maximum: number | null;
+  mean: number | null;
+  latencySeconds: number | null;
+  qualityTecu: number | null;
+  source: string;
+  mountpoint: string;
+};
+
+type TecMapProps = {
+  compact?: boolean;
+  onTelemetry?: (telemetry: RealtimeTelemetry) => void;
+};
+
+const API_BASE = "/api/realtime";
+const DEMO_URL = "/realtime/demo.json";
+const MAX_CLIENT_FRAMES = 36;
+const POLL_INTERVAL_MS = 15_000;
+const DEFAULT_COLOR_MAX = 80;
+const VIEWER_URL = "/tools/gim-viewer.html";
+const DEFAULT_MOUNTPOINT = "IONO00XAN1";
+
+let coastlinePromise: Promise<Coastline[]> | null = null;
+
+function turbo(value: number): [number, number, number] {
+  const t = Math.max(0, Math.min(1, value));
+  const red = [0.13572138, 4.6153926, -42.66032258, 132.13108234, -152.94239396, 59.28637943];
+  const green = [0.09140261, 2.19418839, 4.84296658, -14.18503333, 4.27729857, 2.82956604];
+  const blue = [0.1066733, 12.64194608, -60.58204836, 110.36276771, -89.90310912, 27.34824973];
+  const terms = [1, t, t * t, t ** 3, t ** 4, t ** 5];
+  const channel = (coefficients: number[]) =>
+    Math.max(
+      0,
+      Math.min(
+        255,
+        Math.round(
+          255 *
+            coefficients.reduce(
+              (sum, coefficient, index) => sum + coefficient * terms[index],
+              0,
+            ),
+        ),
+      ),
+    );
+  return [channel(red), channel(green), channel(blue)];
 }
 
-export default function TecMap({ compact = false }: { compact?: boolean }) {
+function loadCanonicalCoastlines(): Promise<Coastline[]> {
+  if (coastlinePromise) return coastlinePromise;
+  coastlinePromise = fetch(VIEWER_URL, { cache: "force-cache" })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`coastline source returned ${response.status}`);
+      }
+      const source = await response.text();
+      const marker = "const COASTLINES = ";
+      const start = source.indexOf(marker);
+      if (start < 0) throw new Error("COASTLINES marker is missing");
+      const jsonStart = start + marker.length;
+      let jsonEnd = source.indexOf(";\nconst el", jsonStart);
+      if (jsonEnd < 0) jsonEnd = source.indexOf(";\r\nconst el", jsonStart);
+      if (jsonEnd < 0) throw new Error("COASTLINES terminator is missing");
+      return JSON.parse(source.slice(jsonStart, jsonEnd)) as Coastline[];
+    })
+    .catch((error) => {
+      coastlinePromise = null;
+      throw error;
+    });
+  return coastlinePromise;
+}
+
+function epochLabel(epoch: string) {
+  const value = new Date(epoch);
+  if (Number.isNaN(value.getTime())) return epoch;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  })
+    .format(value)
+    .replace(/\//g, "-")
+    .replace(" ", " · ");
+}
+
+function shortEpochLabel(epoch: string) {
+  const value = new Date(epoch);
+  if (Number.isNaN(value.getTime())) return epoch;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(value);
+}
+
+function ageSeconds(epoch: string | undefined) {
+  if (!epoch) return null;
+  const value = new Date(epoch).getTime();
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.round((Date.now() - value) / 1000));
+}
+
+function connectionCopy(state: ConnectionState) {
+  if (state === "live") return "REAL-TIME STREAM";
+  if (state === "stale") return "STREAM STALE";
+  if (state === "sample") return "RECENT SAMPLE";
+  if (state === "offline") return "SOURCE OFFLINE";
+  return "CONNECTING";
+}
+
+function nearestIndex(axis: number[], target: number) {
+  let selected = 0;
+  for (let index = 1; index < axis.length; index += 1) {
+    if (Math.abs(axis[index] - target) < Math.abs(axis[selected] - target)) {
+      selected = index;
+    }
+  }
+  return selected;
+}
+
+function localSeries(
+  payload: FramesPayload,
+  selection: Selection,
+): SeriesPayload {
+  const width = payload.grid.lon.length;
+  const valueIndex = selection.latIndex * width + selection.lonIndex;
+  return {
+    schema: payload.schema,
+    status: payload.status,
+    unit: payload.grid.unit,
+    selected: selection,
+    points: payload.frames.map((frame) => ({
+      epoch: frame.epoch,
+      value: Number.isFinite(frame.values[valueIndex])
+        ? frame.values[valueIndex]
+        : null,
+    })),
+  };
+}
+
+async function readJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`${url} returned ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+function normalizePayload(payload: FramesPayload) {
+  if (
+    !payload.grid?.lat?.length ||
+    !payload.grid?.lon?.length ||
+    !payload.frames?.length
+  ) {
+    throw new Error("real-time payload is empty");
+  }
+  const expected = payload.grid.lat.length * payload.grid.lon.length;
+  const frames = payload.frames.filter(
+    (frame) => frame.values.length === expected,
+  );
+  if (!frames.length) throw new Error("real-time grid shape is invalid");
+  return {
+    ...payload,
+    frames,
+    latestIndex: frames.length - 1,
+  };
+}
+
+export default function TecMap({
+  compact = false,
+  onTelemetry,
+}: TecMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [frame, setFrame] = useState(7);
+  const chartRef = useRef<HTMLCanvasElement>(null);
+  const playingRef = useRef(true);
+  const [payload, setPayload] = useState<FramesPayload | null>(null);
+  const [connection, setConnection] =
+    useState<ConnectionState>("connecting");
+  const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
+  const [coastlines, setCoastlines] = useState<Coastline[]>([]);
+  const [colorMax, setColorMax] = useState(DEFAULT_COLOR_MAX);
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [series, setSeries] = useState<SeriesPayload | null>(null);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [mapTooltip, setMapTooltip] = useState<{
+    text: string;
+    left: number;
+    top: number;
+  } | null>(null);
+  const [chartTooltip, setChartTooltip] = useState<{
+    text: string;
+    left: number;
+    top: number;
+  } | null>(null);
+
+  const frame = payload?.frames[
+    Math.min(frameIndex, Math.max(0, payload.frames.length - 1))
+  ];
 
   useEffect(() => {
-    if (!playing || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setFrame((f) => (f + 1) % 24), 1500);
-    return () => window.clearInterval(timer);
+    playingRef.current = playing;
   }, [playing]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.max(1, Math.floor(rect.width * ratio));
-      canvas.height = Math.max(1, Math.floor(rect.height * ratio));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      const w = rect.width, h = rect.height;
-      ctx.fillStyle = "#061a2d"; ctx.fillRect(0, 0, w, h);
-      const cell = compact ? 7 : 8;
-      for (let y = 0; y < h; y += cell) {
-        const lat = 90 - (y / h) * 180;
-        for (let x = 0; x < w; x += cell) {
-          const lon = (x / w) * 360 - 180;
-          const solar = Math.max(0, Math.cos((lat * Math.PI) / 180)) * (0.58 + 0.42 * Math.cos(((lon - frame * 15 + 40) * Math.PI) / 180));
-          const equatorial = Math.exp(-Math.pow(Math.abs(lat) - 16, 2) / 150) * (0.38 + 0.12 * Math.sin((lon + frame * 9) * Math.PI / 75));
-          const wave = 0.08 * Math.sin((lon * 2 + lat + frame * 12) * Math.PI / 90);
-          const v = Math.max(0, Math.min(1, 0.08 + solar * 0.62 + equatorial + wave));
-          ctx.fillStyle = palette(v); ctx.globalAlpha = 0.93; ctx.fillRect(x, y, cell + 0.5, cell + 0.5);
+    let cancelled = false;
+    loadCanonicalCoastlines()
+      .then((items) => {
+        if (!cancelled) setCoastlines(items);
+      })
+      .catch(() => {
+        if (!cancelled) setCoastlines([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInitial = async () => {
+      setConnection("connecting");
+      try {
+        const live = normalizePayload(
+          await readJson<FramesPayload>(
+            `${API_BASE}/frames.json?limit=24`,
+          ),
+        );
+        if (cancelled) return;
+        setPayload(live);
+        setFrameIndex(live.frames.length - 1);
+        setConnection("live");
+      } catch {
+        try {
+          const sample = normalizePayload(
+            await readJson<FramesPayload>(DEMO_URL),
+          );
+          if (cancelled) return;
+          setPayload({ ...sample, status: "sample" });
+          setFrameIndex(sample.frames.length - 1);
+          setConnection("sample");
+        } catch {
+          if (!cancelled) setConnection("offline");
         }
       }
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = "rgba(230,247,255,.28)"; ctx.lineWidth = 1;
-      for (let lon = -180; lon <= 180; lon += 30) { const x = ((lon + 180) / 360) * w; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-      for (let lat = -60; lat <= 60; lat += 30) { const y = ((90 - lat) / 180) * h; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-      ctx.strokeStyle = "rgba(238,251,255,.82)"; ctx.lineWidth = 1.2;
-      continents.forEach((points) => {
-        ctx.beginPath(); points.forEach(([lon, lat], index) => { const x = ((lon + 180) / 360) * w; const y = ((90 - lat) / 180) * h; index ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath(); ctx.stroke();
-      });
-      ctx.fillStyle = "rgba(3,17,30,.82)"; ctx.fillRect(0, 0, w, 24);
-      ctx.fillStyle = "rgba(230,247,255,.76)"; ctx.font = "11px ui-monospace, monospace";
-      ctx.fillText(`2026-07-22 ${String(frame).padStart(2,"0")}:00 UTC · DEMO STREAM`, 12, 16);
     };
-    draw();
-    const observer = new ResizeObserver(draw); observer.observe(canvas);
+
+    const pollLatest = async () => {
+      try {
+        const latest = await readJson<LatestPayload>(
+          `${API_BASE}/latest.json?t=${Date.now()}`,
+        );
+        if (cancelled || !latest.frame?.values?.length) return;
+        setPayload((current) => {
+          const currentFrames =
+            current?.status === "live" ? current.frames : [];
+          const existing = currentFrames.findIndex(
+            (item) => item.epoch === latest.frame.epoch,
+          );
+          const nextFrames =
+            existing >= 0
+              ? currentFrames.map((item, index) =>
+                  index === existing ? latest.frame : item,
+                )
+              : [...currentFrames, latest.frame].slice(-MAX_CLIENT_FRAMES);
+          const next: FramesPayload = {
+            schema: latest.schema,
+            status: "live",
+            generatedAt: latest.generatedAt,
+            grid: latest.grid,
+            frames: nextFrames,
+            latestIndex: nextFrames.length - 1,
+          };
+          return next;
+        });
+        setConnection("live");
+      } catch {
+        setConnection((current) =>
+          current === "live" ? "stale" : current,
+        );
+      }
+    };
+
+    void loadInitial();
+    const timer = window.setInterval(() => void pollLatest(), POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (playingRef.current && payload?.frames.length) {
+      setFrameIndex(payload.frames.length - 1);
+    }
+  }, [payload?.frames.length]);
+
+  useEffect(() => {
+    if (
+      !playing ||
+      !payload ||
+      payload.frames.length < 2 ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setFrameIndex((current) => (current + 1) % payload.frames.length);
+    }, compact ? 1_500 : 1_000);
+    return () => window.clearInterval(timer);
+  }, [compact, payload, playing]);
+
+  useEffect(() => {
+    const latency = ageSeconds(frame?.epoch);
+    const effectiveState =
+      connection === "live" && latency !== null && latency > 900
+        ? "stale"
+        : connection;
+    onTelemetry?.({
+      state: effectiveState,
+      epoch: frame?.epoch ?? null,
+      frameCount: payload?.frames.length ?? 0,
+      maximum: frame?.max ?? null,
+      mean: frame?.mean ?? null,
+      latencySeconds: latency,
+      qualityTecu:
+        typeof frame?.source.qualityTecu === "number"
+          ? frame.source.qualityTecu
+          : null,
+      source:
+        frame?.source.transport ??
+        (connection === "sample" ? "历史 SSR 样例" : "等待数据源"),
+      mountpoint: frame?.source.mountpoint ?? DEFAULT_MOUNTPOINT,
+    });
+  }, [connection, frame, onTelemetry, payload?.frames.length]);
+
+  const drawMap = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !payload || !frame) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = "#e9eef2";
+    context.fillRect(0, 0, width, height);
+
+    const gridCanvas = document.createElement("canvas");
+    gridCanvas.width = payload.grid.lon.length;
+    gridCanvas.height = payload.grid.lat.length;
+    const gridContext = gridCanvas.getContext("2d");
+    if (!gridContext) return;
+    const image = gridContext.createImageData(
+      gridCanvas.width,
+      gridCanvas.height,
+    );
+    for (let index = 0; index < frame.values.length; index += 1) {
+      const value = frame.values[index];
+      const pixel = index * 4;
+      if (!Number.isFinite(value)) continue;
+      const [red, green, blue] = turbo(value / colorMax);
+      image.data[pixel] = red;
+      image.data[pixel + 1] = green;
+      image.data[pixel + 2] = blue;
+      image.data[pixel + 3] = 255;
+    }
+    gridContext.putImageData(image, 0, 0);
+
+    const xy = (lon: number, lat: number): [number, number] => [
+      ((lon + 180) / 360) * width,
+      ((90 - lat) / 180) * height,
+    ];
+    const [gridLeft, gridTop] = xy(
+      payload.grid.lon[0],
+      payload.grid.lat[0],
+    );
+    const [gridRight, gridBottom] = xy(
+      payload.grid.lon[payload.grid.lon.length - 1],
+      payload.grid.lat[payload.grid.lat.length - 1],
+    );
+    context.imageSmoothingEnabled = true;
+    context.drawImage(
+      gridCanvas,
+      gridLeft,
+      gridTop,
+      gridRight - gridLeft,
+      gridBottom - gridTop,
+    );
+
+    context.lineWidth = Math.max(1, dpr * 0.7);
+    context.strokeStyle = "rgba(255,255,255,.42)";
+    for (let lon = -120; lon <= 120; lon += 60) {
+      const x = xy(lon, 0)[0];
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, height);
+      context.stroke();
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const y = xy(0, lat)[1];
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
+    }
+
+    context.lineWidth = Math.max(1, dpr * 0.85);
+    context.strokeStyle = "rgba(22,31,39,.82)";
+    context.lineJoin = "round";
+    for (const path of coastlines) {
+      context.beginPath();
+      let previous: [number, number] | null = null;
+      for (const point of path) {
+        const projected = xy(point[0], point[1]);
+        if (
+          previous === null ||
+          Math.abs(projected[0] - previous[0]) > width / 2
+        ) {
+          context.moveTo(projected[0], projected[1]);
+        } else {
+          context.lineTo(projected[0], projected[1]);
+        }
+        previous = projected;
+      }
+      context.stroke();
+    }
+
+    if (selection) {
+      const [x, y] = xy(selection.lon, selection.lat);
+      context.fillStyle = "rgba(255,255,255,.96)";
+      context.strokeStyle = "#b42318";
+      context.lineWidth = 2 * dpr;
+      context.beginPath();
+      context.arc(x, y, 7 * dpr, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.fillStyle = "#b42318";
+      context.beginPath();
+      context.arc(x, y, 2.5 * dpr, 0, Math.PI * 2);
+      context.fill();
+    }
+  }, [coastlines, colorMax, frame, payload, selection]);
+
+  useEffect(() => {
+    drawMap();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(drawMap);
+    observer.observe(canvas);
     return () => observer.disconnect();
-  }, [frame, compact]);
+  }, [drawMap]);
+
+  const pointerSelection = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (!payload || !frame) return null;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const longitude =
+        ((event.clientX - rect.left) / rect.width) * 360 - 180;
+      const latitude =
+        90 - ((event.clientY - rect.top) / rect.height) * 180;
+      const lonIndex = nearestIndex(payload.grid.lon, longitude);
+      const latIndex = nearestIndex(payload.grid.lat, latitude);
+      const valueIndex = latIndex * payload.grid.lon.length + lonIndex;
+      return {
+        selection: {
+          latIndex,
+          lonIndex,
+          lat: payload.grid.lat[latIndex],
+          lon: payload.grid.lon[lonIndex],
+        },
+        value: frame.values[valueIndex],
+        rect,
+      };
+    },
+    [frame, payload],
+  );
+
+  const handleMapMove = (
+    event: ReactPointerEvent<HTMLCanvasElement>,
+  ) => {
+    const point = pointerSelection(event);
+    if (!point) return;
+    const left = event.clientX - point.rect.left + 12;
+    const top = event.clientY - point.rect.top + 12;
+    setMapTooltip({
+      text: `${point.selection.lon.toFixed(1)}°, ${point.selection.lat.toFixed(1)}° · ${
+        Number.isFinite(point.value) ? point.value.toFixed(2) : "—"
+      } TECU`,
+      left,
+      top,
+    });
+  };
+
+  const selectMapPoint = async (
+    event: ReactPointerEvent<HTMLCanvasElement>,
+  ) => {
+    const point = pointerSelection(event);
+    if (!point || !payload) return;
+    setSelection(point.selection);
+    setSeriesLoading(true);
+    setSeries(localSeries(payload, point.selection));
+    try {
+      const remote = await readJson<SeriesPayload>(
+        `${API_BASE}/series.json?lat=${point.selection.lat}&lon=${point.selection.lon}&hours=24`,
+      );
+      setSeries(remote);
+    } catch {
+      setSeries(localSeries(payload, point.selection));
+    } finally {
+      setSeriesLoading(false);
+    }
+  };
+
+  const seriesValues = useMemo(
+    () =>
+      series?.points
+        .map((point) => point.value)
+        .filter((value): value is number => typeof value === "number") ?? [],
+    [series],
+  );
+
+  const drawSeries = useCallback(() => {
+    const canvas = chartRef.current;
+    if (!canvas || !series || !series.points.length || !seriesValues.length) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = "#f7fafb";
+    context.fillRect(0, 0, width, height);
+
+    const padding = {
+      left: 54 * dpr,
+      right: 18 * dpr,
+      top: 23 * dpr,
+      bottom: 34 * dpr,
+    };
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const rawMin = Math.min(...seriesValues);
+    const rawMax = Math.max(...seriesValues);
+    const range = Math.max(1, rawMax - rawMin);
+    const minimum = Math.max(0, rawMin - range * 0.12);
+    const maximum = rawMax + range * 0.12;
+    const xAt = (index: number) =>
+      padding.left +
+      (series.points.length <= 1
+        ? 0
+        : (index / (series.points.length - 1)) * plotWidth);
+    const yAt = (value: number) =>
+      padding.top + ((maximum - value) / (maximum - minimum)) * plotHeight;
+
+    context.strokeStyle = "#d7e0e5";
+    context.lineWidth = dpr;
+    context.font = `${10 * dpr}px Arial`;
+    context.fillStyle = "#5f6f78";
+    context.textBaseline = "middle";
+    context.textAlign = "right";
+    for (let tick = 0; tick <= 4; tick += 1) {
+      const y = padding.top + (tick / 4) * plotHeight;
+      const value = maximum - (tick / 4) * (maximum - minimum);
+      context.beginPath();
+      context.moveTo(padding.left, y);
+      context.lineTo(width - padding.right, y);
+      context.stroke();
+      context.fillText(value.toFixed(1), padding.left - 7 * dpr, y);
+    }
+
+    context.strokeStyle = "#1769aa";
+    context.lineWidth = 2 * dpr;
+    context.beginPath();
+    let started = false;
+    series.points.forEach((point, index) => {
+      if (typeof point.value !== "number") {
+        started = false;
+        return;
+      }
+      const x = xAt(index);
+      const y = yAt(point.value);
+      if (!started) {
+        context.moveTo(x, y);
+        started = true;
+      } else {
+        context.lineTo(x, y);
+      }
+    });
+    context.stroke();
+
+    context.fillStyle = "#405664";
+    context.textAlign = "left";
+    context.textBaseline = "top";
+    context.fillText(
+      shortEpochLabel(series.points[0].epoch),
+      padding.left,
+      height - padding.bottom + 9 * dpr,
+    );
+    context.textAlign = "right";
+    context.fillText(
+      shortEpochLabel(series.points[series.points.length - 1].epoch),
+      width - padding.right,
+      height - padding.bottom + 9 * dpr,
+    );
+    context.fillStyle = "#1769aa";
+    context.textAlign = "left";
+    context.textBaseline = "bottom";
+    context.fillText("VTEC (TECU)", padding.left, padding.top - 6 * dpr);
+  }, [series, seriesValues]);
+
+  useEffect(() => {
+    drawSeries();
+    const canvas = chartRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(drawSeries);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [drawSeries]);
+
+  const handleChartMove = (
+    event: ReactPointerEvent<HTMLCanvasElement>,
+  ) => {
+    if (!series?.points.length) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const left = 54;
+    const right = 18;
+    const relative = Math.max(
+      0,
+      Math.min(
+        1,
+        (event.clientX - rect.left - left) /
+          Math.max(1, rect.width - left - right),
+      ),
+    );
+    const index = Math.round(relative * (series.points.length - 1));
+    const point = series.points[index];
+    setChartTooltip({
+      text: `${epochLabel(point.epoch)} UTC · ${
+        typeof point.value === "number" ? point.value.toFixed(2) : "—"
+      } TECU`,
+      left: Math.min(rect.width - 215, Math.max(6, event.clientX - rect.left + 10)),
+      top: 8,
+    });
+  };
+
+  const latency = ageSeconds(frame?.epoch);
+  const effectiveConnection =
+    connection === "live" && latency !== null && latency > 900
+      ? "stale"
+      : connection;
+  const sourceLabel =
+    frame?.source.mountpoint ??
+    frame?.source.file ??
+    DEFAULT_MOUNTPOINT;
 
   return (
-    <div className={`tec-module ${compact ? "compact-tec" : ""}`}>
-      <div className="map-stage"><canvas ref={canvasRef} aria-label="全球电离层总电子含量演示地图" /></div>
-      <div className="map-controls">
-        <button type="button" onClick={() => setPlaying((v) => !v)} aria-label={playing ? "暂停动画" : "播放动画"}>{playing ? "Ⅱ" : "▶"}</button>
-        <input type="range" min="0" max="23" value={frame} onChange={(e) => { setFrame(Number(e.target.value)); setPlaying(false); }} aria-label="演示历元" />
-        <span>{String(frame).padStart(2,"0")}:00 UTC</span>
+    <div
+      className={`tec-module realtime-tec ${compact ? "compact-tec" : ""}`}
+    >
+      <div className="tec-stream-bar">
+        <span className={`stream-state state-${effectiveConnection}`}>
+          <i />
+          {connectionCopy(effectiveConnection)}
+        </span>
+        <span>
+          {sourceLabel}
+          {frame?.source.message ? ` · ${frame.source.message}` : ""}
+        </span>
+        <span>{frame ? `${epochLabel(frame.epoch)} UTC` : "等待首个历元"}</span>
       </div>
-      <div className="tec-legend"><span>0</span><i /><span>80 TECU</span></div>
+
+      <div className="map-stage">
+        <canvas
+          ref={canvasRef}
+          aria-label="全球电离层总电子含量实时地图；点击任意网格查看时间序列"
+          onPointerMove={handleMapMove}
+          onPointerLeave={() => setMapTooltip(null)}
+          onPointerDown={selectMapPoint}
+        />
+        {mapTooltip ? (
+          <div
+            className="tec-tooltip"
+            style={{ left: mapTooltip.left, top: mapTooltip.top }}
+          >
+            {mapTooltip.text}
+          </div>
+        ) : null}
+        <div className="map-corner-note">
+          <span>GRID 2.5° × 5°</span>
+          <span>点击地图查看该点 24 h VTEC</span>
+        </div>
+      </div>
+
+      <div className="map-controls">
+        <div className="map-transport">
+          <button
+            type="button"
+            onClick={() => {
+              setPlaying(false);
+              setFrameIndex((value) =>
+                payload?.frames.length
+                  ? (value - 1 + payload.frames.length) %
+                    payload.frames.length
+                  : 0,
+              );
+            }}
+            aria-label="上一历元"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => setPlaying((value) => !value)}
+            aria-label={playing ? "暂停动画" : "播放动画"}
+          >
+            {playing ? "Ⅱ" : "▶"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPlaying(false);
+              setFrameIndex((value) =>
+                payload?.frames.length
+                  ? (value + 1) % payload.frames.length
+                  : 0,
+              );
+            }}
+            aria-label="下一历元"
+          >
+            ›
+          </button>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max={Math.max(0, (payload?.frames.length ?? 1) - 1)}
+          value={Math.min(
+            frameIndex,
+            Math.max(0, (payload?.frames.length ?? 1) - 1),
+          )}
+          onChange={(event) => {
+            setFrameIndex(Number(event.target.value));
+            setPlaying(false);
+          }}
+          aria-label="实时 GIM 历元"
+        />
+        <span>
+          {payload?.frames.length
+            ? `${frameIndex + 1} / ${payload.frames.length}`
+            : "0 / 0"}
+        </span>
+      </div>
+
+      <div className="tec-legend">
+        <span>0</span>
+        <i />
+        <span>{colorMax} TECU</span>
+        <label>
+          色标上限
+          <select
+            value={colorMax}
+            onChange={(event) => setColorMax(Number(event.target.value))}
+          >
+            {[60, 80, 100, 120].map((value) => (
+              <option value={value} key={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {selection && series ? (
+        <section className="tec-series-panel">
+          <div className="series-heading">
+            <div>
+              <span>SELECTED GRID / 24 H TRACE</span>
+              <strong>
+                {selection.lon.toFixed(1)}°, {selection.lat.toFixed(1)}°
+              </strong>
+            </div>
+            <div>
+              <span>{series.points.length} EPOCHS</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelection(null);
+                  setSeries(null);
+                }}
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+          <div className="series-chart-shell">
+            <canvas
+              ref={chartRef}
+              aria-label={`经度 ${selection.lon.toFixed(1)} 度、纬度 ${selection.lat.toFixed(1)} 度的 VTEC 时间序列`}
+              onPointerMove={handleChartMove}
+              onPointerLeave={() => setChartTooltip(null)}
+            />
+            {chartTooltip ? (
+              <div
+                className="tec-tooltip chart-tooltip"
+                style={{
+                  left: chartTooltip.left,
+                  top: chartTooltip.top,
+                }}
+              >
+                {chartTooltip.text}
+              </div>
+            ) : null}
+            {seriesLoading ? (
+              <span className="series-loading">正在读取完整历史…</span>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

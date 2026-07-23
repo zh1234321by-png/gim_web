@@ -44,3 +44,27 @@ pnpm run dev
 ```powershell
 pnpm run build
 ```
+
+## 实时观测台
+
+实时观测台已接入 `IONO00XAN1` NTRIP 数据流。后台程序负责解码
+IGS SSR 4076.201、展开球谐系数、维护 24 小时点序列；网页通过
+`/api/realtime` 同源读取。
+
+Windows：
+
+```powershell
+python -m pip install -r scripts/requirements-realtime.txt
+python scripts/realtime_gim_bridge.py --mode ntrip
+```
+
+Linux：
+
+```bash
+python3 -m pip install --user -r scripts/requirements-realtime.txt
+python3 scripts/realtime_gim_bridge.py --mode ntrip
+```
+
+完整说明见：
+
+`scripts/实时观测台部署说明.md`

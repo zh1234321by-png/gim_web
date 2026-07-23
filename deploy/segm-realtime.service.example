@@ -1,0 +1,19 @@
+[Unit]
+Description=SEGM real-time IGS SSR VTEC to GIM bridge
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=dell
+Group=dell
+WorkingDirectory=/mnt/disk1/SEGMweb
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /mnt/disk1/SEGMweb/scripts/realtime_gim_bridge.py --mode ntrip --http-host 127.0.0.1 --http-port 8765
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
