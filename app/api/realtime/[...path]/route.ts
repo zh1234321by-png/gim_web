@@ -58,8 +58,16 @@ async function proxyRealtime(request: Request, context: RouteContext) {
     headers.set("Cache-Control", "no-store, max-age=0");
     headers.set("X-SEGM-Realtime-Upstream", response.ok ? "online" : "error");
 
+    // Do not stream an Undici response body directly into Vinext on Node 24.
+    // When a browser refreshes or disconnects, downstream backpressure can
+    // leave Undici's HTTP parser paused as the Python HTTP/1.0 peer closes.
+    // Fully consuming these bounded JSON payloads also keeps timeout errors
+    // inside this route's try/catch instead of surfacing as process errors.
+    const body =
+      request.method === "HEAD" ? null : await response.arrayBuffer();
+
     return new Response(
-      request.method === "HEAD" ? null : response.body,
+      body,
       {
         status: response.status,
         headers,

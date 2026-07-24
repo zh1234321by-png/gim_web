@@ -91,3 +91,12 @@ test("keeps the Vinext Windows static-asset path fix in the start lifecycle", as
   assert.match(packageJson, /"postinstall": "node scripts\/fix-vinext-windows\.mjs"/);
   assert.match(patchScript, /split\(path\.sep\)\.join\("\/"\)/);
 });
+
+test("buffers the real-time proxy response before returning it to Vinext", async () => {
+  const route = await readFile(
+    new URL("../app/api/realtime/[...path]/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /await response\.arrayBuffer\(\)/);
+  assert.doesNotMatch(route, /new Response\(\s*response\.body/);
+});
