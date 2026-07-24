@@ -50,6 +50,13 @@ pnpm run dev
 pnpm run build
 ```
 
+### Windows 生产模式无样式
+
+Vinext 0.0.50 的静态资源缓存路径在 Windows 下需要将反斜杠统一为 URL
+斜杠。项目的 `postinstall` 和 `prestart` 会自动执行兼容修复；停止旧进程后
+重新运行 `pnpm start` 即可。若浏览器仍保留无样式页面，请按
+`Ctrl + F5` 强制刷新。
+
 ## 实时观测台
 
 实时观测台已接入 `IONO00XAN1` NTRIP 数据流。后台程序负责解码

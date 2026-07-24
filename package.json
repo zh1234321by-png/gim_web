@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "postinstall": "node scripts/fix-vinext-windows.mjs",
+    "prestart": "node scripts/fix-vinext-windows.mjs",
     "start": "vinext start",
     "test": "pnpm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",

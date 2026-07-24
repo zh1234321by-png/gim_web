@@ -78,3 +78,16 @@ test("ships the real-time bridge, high-resolution map source, and sample fallbac
 
   await access(new URL("../scripts/实时观测台部署说明.md", import.meta.url));
 });
+
+test("keeps the Vinext Windows static-asset path fix in the start lifecycle", async () => {
+  const [packageJson, patchScript] = await Promise.all([
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(
+      new URL("../scripts/fix-vinext-windows.mjs", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.match(packageJson, /"prestart": "node scripts\/fix-vinext-windows\.mjs"/);
+  assert.match(packageJson, /"postinstall": "node scripts\/fix-vinext-windows\.mjs"/);
+  assert.match(patchScript, /split\(path\.sep\)\.join\("\/"\)/);
+});
