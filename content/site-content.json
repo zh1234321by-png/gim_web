@@ -140,13 +140,14 @@
     }
   ],
   "news": [
+    { "date": "2026-07-24", "title": "XUST 5分钟实时全球电离层与DCB产品开始发布", "type": "产品" },
     { "date": "2026-07-21", "title": "XUST事后电离层产品云目录开放", "type": "产品" },
     { "date": "2026-06-09", "title": "课题组在“经纬论坛·格物致知”分享全球电离层监测前沿", "type": "动态" },
     { "date": "2026-01-01", "title": "课题组研究成果发表于 Geophysical Research Letters", "type": "论文" }
   ],
   "product": {
     "archiveBaseUrl": "http://8.130.47.186/post_iono",
-    "realtimeBaseUrl": "",
+    "realtimeBaseUrl": "http://8.130.47.186/rt_iono",
     "archiveStartYear": 2024,
     "formats": [
       { "id": "gim-long", "label": "全球电离层图 · IONEX 长文件名", "cadence": "1小时" },

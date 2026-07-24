@@ -539,6 +539,16 @@ class FrameStore:
         return list(reversed(rows))
 
     @staticmethod
+    def _day_bounds(date_text: str) -> tuple[datetime, datetime]:
+        try:
+            start = datetime.strptime(date_text, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError as exc:
+            raise ValueError("date must use YYYY-MM-DD in UTC") from exc
+        return start, start + timedelta(days=1)
+
+    @staticmethod
     def _public_frame(row: sqlite3.Row, values: np.ndarray) -> dict[str, Any]:
         return {
             "epoch": row["epoch"],
@@ -573,6 +583,23 @@ class FrameStore:
                 "frame": self._public_frame(row, self._unpack(row["values_blob"])),
             }
 
+    def coverage_payload(self) -> dict[str, Any]:
+        with self.lock:
+            row = self.connection.execute(
+                """
+                SELECT COUNT(*) AS frame_count,
+                       MIN(epoch) AS oldest_epoch,
+                       MAX(epoch) AS latest_epoch
+                FROM frames
+                """
+            ).fetchone()
+            return {
+                "frameCount": int(row[0]),
+                "oldestEpoch": row[1],
+                "latestEpoch": row[2],
+                "historyHours": self.history_hours,
+            }
+
     def frames_payload(
         self,
         limit: int,
@@ -595,28 +622,97 @@ class FrameStore:
                 "latestIndex": len(rows) - 1,
             }
 
+    def frame_payload(self, epoch: str) -> dict[str, Any] | None:
+        requested = epoch.strip()
+        if not requested:
+            raise ValueError("epoch is required")
+        try:
+            parsed = datetime.fromisoformat(requested.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("epoch must be an ISO-8601 UTC timestamp") from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        normalized = iso_utc(parsed)
+        with self.lock:
+            self.connection.row_factory = sqlite3.Row
+            row = self.connection.execute(
+                "SELECT * FROM frames WHERE epoch = ?",
+                (normalized,),
+            ).fetchone()
+            if row is None:
+                return None
+            return {
+                "schema": SCHEMA,
+                "status": "history",
+                "generatedAt": iso_utc(datetime.now(timezone.utc)),
+                "grid": self.grid_metadata(),
+                "frame": self._public_frame(
+                    row,
+                    self._unpack(row["values_blob"]),
+                ),
+            }
+
+    def timeline_payload(self, date_text: str) -> dict[str, Any]:
+        start, end = self._day_bounds(date_text)
+        with self.lock:
+            self.connection.row_factory = sqlite3.Row
+            rows = self.connection.execute(
+                """
+                SELECT epoch, minimum, maximum, mean, source_json
+                FROM frames
+                WHERE epoch >= ? AND epoch < ?
+                ORDER BY epoch ASC
+                """,
+                (iso_utc(start), iso_utc(end)),
+            ).fetchall()
+            return {
+                "schema": SCHEMA,
+                "status": "history",
+                "date": date_text,
+                "timeZone": "UTC",
+                "coverage": self.coverage_payload(),
+                "epochs": [
+                    {
+                        "epoch": row["epoch"],
+                        "min": round(float(row["minimum"]), 2),
+                        "max": round(float(row["maximum"]), 2),
+                        "mean": round(float(row["mean"]), 2),
+                        "source": json.loads(row["source_json"]),
+                    }
+                    for row in rows
+                ],
+            }
+
     def series_payload(
         self,
         latitude: float,
         longitude: float,
         hours: float,
+        date_text: str | None = None,
     ) -> dict[str, Any] | None:
         latitude_index = int(np.argmin(np.abs(LATITUDES - latitude)))
         longitude_index = int(np.argmin(np.abs(LONGITUDES - longitude)))
-        cutoff = iso_utc(
-            datetime.now(timezone.utc)
-            - timedelta(hours=max(0.25, min(hours, self.history_hours)))
-        )
+        if date_text:
+            start, end = self._day_bounds(date_text)
+            window_sql = "epoch >= ? AND epoch < ?"
+            window_parameters = (iso_utc(start), iso_utc(end))
+        else:
+            cutoff = iso_utc(
+                datetime.now(timezone.utc)
+                - timedelta(hours=max(0.25, min(hours, self.history_hours)))
+            )
+            window_sql = "epoch >= ?"
+            window_parameters = (cutoff,)
         with self.lock:
             self.connection.row_factory = sqlite3.Row
             rows = self.connection.execute(
-                """
+                f"""
                 SELECT epoch, values_blob
                 FROM frames
-                WHERE epoch >= ?
+                WHERE {window_sql}
                 ORDER BY epoch ASC
                 """,
-                (cutoff,),
+                window_parameters,
             ).fetchall()
             if not rows:
                 rows = self.connection.execute(
@@ -950,6 +1046,7 @@ class RealtimeRequestHandler(BaseHTTPRequestHandler):
                         "latestEpoch": (
                             latest["frame"]["epoch"] if latest else None
                         ),
+                        "coverage": self.store.coverage_payload(),
                     }
                 )
                 return
@@ -973,14 +1070,33 @@ class RealtimeRequestHandler(BaseHTTPRequestHandler):
                     self._send_json(payload)
                 return
 
+            if path.endswith("/frame.json"):
+                epoch = query.get("epoch", [""])[0]
+                payload = self.store.frame_payload(epoch)
+                if payload is None:
+                    self._waiting()
+                else:
+                    self._send_json(payload)
+                return
+
+            if path.endswith("/timeline.json"):
+                date_text = query.get(
+                    "date",
+                    [datetime.now(timezone.utc).date().isoformat()],
+                )[0]
+                self._send_json(self.store.timeline_payload(date_text))
+                return
+
             if path.endswith("/series.json"):
                 latitude = float(query.get("lat", ["0"])[0])
                 longitude = float(query.get("lon", ["0"])[0])
                 hours = float(query.get("hours", ["24"])[0])
+                date_text = query.get("date", [None])[0]
                 payload = self.store.series_payload(
                     latitude,
                     longitude,
                     hours,
+                    date_text,
                 )
                 if payload is None:
                     self._waiting()
@@ -1084,7 +1200,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("runtime/realtime/gim.sqlite3"),
     )
-    parser.add_argument("--history-hours", type=float, default=24.0)
+    parser.add_argument(
+        "--history-hours",
+        type=float,
+        default=168.0,
+        help="Rolling SQLite history. Default 168 hours (7 days).",
+    )
     parser.add_argument("--frames-limit", type=int, default=24)
     parser.add_argument("--watch-interval", type=float, default=5.0)
     parser.add_argument("--http-host", default="127.0.0.1")
@@ -1156,6 +1277,22 @@ def main() -> int:
                 )
                 print(f"[WRITE] {args.export_json}", flush=True)
             return 0
+
+        if args.mode == "ntrip":
+            archive_files = sorted(glob.glob(args.ssr_glob))
+            if archive_files:
+                restored = process_ssr_files(
+                    archive_files,
+                    recoverer,
+                    store,
+                    args.mountpoint or None,
+                    0,
+                )
+                print(
+                    f"[BACKFILL] restored {restored} missing frame(s) "
+                    f"from {len(archive_files)} SSR archive file(s)",
+                    flush=True,
+                )
 
         runner = run_ntrip if args.mode == "ntrip" else run_watch
         if args.no_http:

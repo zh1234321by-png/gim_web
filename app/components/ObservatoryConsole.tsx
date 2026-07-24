@@ -30,6 +30,7 @@ function latencyLabel(seconds: number | null) {
 
 function stateCopy(state: RealtimeTelemetry["state"]) {
   if (state === "live") return "LIVE";
+  if (state === "history") return "REPLAY";
   if (state === "stale") return "STALE";
   if (state === "sample") return "SAMPLE";
   if (state === "offline") return "OFFLINE";
@@ -86,11 +87,19 @@ export default function ObservatoryConsole() {
             <i style={{ "--fill": "48%" } as React.CSSProperties} />
           </article>
           <article>
-            <span>DATA AGE</span>
+            <span>
+              {telemetry.state === "history" ? "VIEW MODE" : "DATA AGE"}
+            </span>
             <strong className="metric-text">
-              {latencyLabel(telemetry.latencySeconds)}
+              {telemetry.state === "history"
+                ? "HISTORY"
+                : latencyLabel(telemetry.latencySeconds)}
             </strong>
-            <small>SSR EPOCH → VIEWER</small>
+            <small>
+              {telemetry.state === "history"
+                ? "UTC DAILY ARCHIVE"
+                : "SSR EPOCH → VIEWER"}
+            </small>
             <i
               style={{
                 "--fill":

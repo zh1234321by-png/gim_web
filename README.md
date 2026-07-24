@@ -28,7 +28,12 @@
 
 `http://8.130.47.186/post_iono`
 
-实时产品上线后，将 `product.realtimeBaseUrl` 改为正式目录或 API 地址。当前实时地图与空间天气数值均明确标注为界面演示数据。
+实时产品目录：
+
+`http://8.130.47.186/rt_iono`
+
+实时产品按年份和年积日发布，检索器会生成 5 分钟 GIM、短文件名
+IONEX 和日 DCB 的下载地址。
 
 ## 本地运行
 
@@ -49,7 +54,9 @@ pnpm run build
 
 实时观测台已接入 `IONO00XAN1` NTRIP 数据流。后台程序负责解码
 IGS SSR 4076.201、展开球谐系数、维护 24 小时点序列；网页通过
-`/api/realtime` 同源读取。
+`/api/realtime` 同源读取。SQLite 默认连续保存 7 天历元，观测台可以按
+UTC 日期回放当日完整时间轴；Caster 本身不能倒播，因此后台程序需要全天
+常驻运行。
 
 Windows：
 

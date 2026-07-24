@@ -48,18 +48,26 @@ test("server-renders the real-time observatory", async () => {
 });
 
 test("ships the real-time bridge, high-resolution map source, and sample fallback", async () => {
-  const [bridge, map, sample] = await Promise.all([
+  const [bridge, map, sample, content] = await Promise.all([
     readFile(new URL("../scripts/realtime_gim_bridge.py", import.meta.url), "utf8"),
     readFile(new URL("../app/components/TecMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../public/realtime/demo.json", import.meta.url), "utf8"),
+    readFile(new URL("../content/site-content.json", import.meta.url), "utf8"),
   ]);
 
   assert.match(bridge, /IONO00XAN1/);
   assert.match(bridge, /4076_201/);
   assert.match(bridge, /\/series\.json/);
+  assert.match(bridge, /\/timeline\.json/);
+  assert.match(bridge, /\/frame\.json/);
+  assert.match(bridge, /default=168\.0/);
   assert.match(map, /gim-viewer\.html/);
   assert.match(map, /COASTLINES/);
   assert.match(map, /series\.json/);
+  assert.match(map, /timeline\.json/);
+  assert.match(map, /历史回放/);
+  assert.match(content, /http:\/\/8\.130\.47\.186\/rt_iono/);
+  assert.match(content, /实时全球电离层与DCB产品开始发布/);
 
   const payload = JSON.parse(sample);
   assert.ok(payload.frames.length >= 2);

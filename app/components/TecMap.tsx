@@ -49,10 +49,32 @@ type FramesPayload = {
 
 type LatestPayload = {
   schema: string;
-  status: "live";
+  status: "live" | "history";
   generatedAt: string;
   grid: GridMetadata;
   frame: GimFrame;
+};
+
+type TimelineEpoch = {
+  epoch: string;
+  min: number;
+  max: number;
+  mean: number;
+  source: GimFrame["source"];
+};
+
+type TimelinePayload = {
+  schema: string;
+  status: "history";
+  date: string;
+  timeZone: "UTC";
+  coverage: {
+    frameCount: number;
+    oldestEpoch: string | null;
+    latestEpoch: string | null;
+    historyHours: number;
+  };
+  epochs: TimelineEpoch[];
 };
 
 type SeriesPoint = {
@@ -80,7 +102,13 @@ type Selection = {
   lon: number;
 };
 
-type ConnectionState = "connecting" | "live" | "stale" | "sample" | "offline";
+type ConnectionState =
+  | "connecting"
+  | "live"
+  | "history"
+  | "stale"
+  | "sample"
+  | "offline";
 
 export type RealtimeTelemetry = {
   state: ConnectionState;
@@ -194,10 +222,15 @@ function ageSeconds(epoch: string | undefined) {
 
 function connectionCopy(state: ConnectionState) {
   if (state === "live") return "REAL-TIME STREAM";
+  if (state === "history") return "HISTORICAL REPLAY";
   if (state === "stale") return "STREAM STALE";
   if (state === "sample") return "RECENT SAMPLE";
   if (state === "offline") return "SOURCE OFFLINE";
   return "CONNECTING";
+}
+
+function utcDateLabel(value = new Date()) {
+  return value.toISOString().slice(0, 10);
 }
 
 function nearestIndex(axis: number[], target: number) {
@@ -278,6 +311,14 @@ export default function TecMap({
   const [selection, setSelection] = useState<Selection | null>(null);
   const [series, setSeries] = useState<SeriesPayload | null>(null);
   const [seriesLoading, setSeriesLoading] = useState(false);
+  const [historyDate, setHistoryDate] = useState(() => utcDateLabel());
+  const [timeline, setTimeline] = useState<TimelinePayload | null>(null);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [historyFrame, setHistoryFrame] = useState<GimFrame | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyMessage, setHistoryMessage] = useState(
+    "服务器连续保存 7 天历元，可按 UTC 日期回放",
+  );
   const [mapTooltip, setMapTooltip] = useState<{
     text: string;
     left: number;
@@ -289,9 +330,10 @@ export default function TecMap({
     top: number;
   } | null>(null);
 
-  const frame = payload?.frames[
+  const liveFrame = payload?.frames[
     Math.min(frameIndex, Math.max(0, payload.frames.length - 1))
   ];
+  const frame = historyFrame ?? liveFrame;
 
   useEffect(() => {
     playingRef.current = playing;
@@ -386,39 +428,76 @@ export default function TecMap({
   }, []);
 
   useEffect(() => {
-    if (playingRef.current && payload?.frames.length) {
+    if (!timeline && playingRef.current && payload?.frames.length) {
       setFrameIndex(payload.frames.length - 1);
     }
-  }, [payload?.frames.length]);
+  }, [payload?.frames.length, timeline]);
 
   useEffect(() => {
     if (
       !playing ||
-      !payload ||
-      payload.frames.length < 2 ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ) {
       return;
     }
+    const count = timeline?.epochs.length ?? payload?.frames.length ?? 0;
+    if (count < 2) return;
     const timer = window.setInterval(() => {
-      setFrameIndex((current) => (current + 1) % payload.frames.length);
+      if (timeline) {
+        setHistoryIndex((current) => (current + 1) % timeline.epochs.length);
+      } else if (payload) {
+        setFrameIndex((current) => (current + 1) % payload.frames.length);
+      }
     }, compact ? 1_500 : 1_000);
     return () => window.clearInterval(timer);
-  }, [compact, payload, playing]);
+  }, [compact, payload, playing, timeline]);
+
+  useEffect(() => {
+    if (!timeline?.epochs.length) return;
+    const selected = timeline.epochs[
+      Math.min(historyIndex, timeline.epochs.length - 1)
+    ];
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setHistoryLoading(true);
+      try {
+        const selectedFrame = await readJson<LatestPayload>(
+          `${API_BASE}/frame.json?epoch=${encodeURIComponent(selected.epoch)}`,
+        );
+        if (!cancelled) {
+          setHistoryFrame(selectedFrame.frame);
+          setHistoryMessage(
+            `${timeline.date} UTC · ${timeline.epochs.length} 个归档历元`,
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setHistoryMessage("该历元读取失败，请确认实时归档服务正在运行");
+        }
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    }, 100);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [historyIndex, timeline]);
 
   useEffect(() => {
     const latency = ageSeconds(frame?.epoch);
-    const effectiveState =
-      connection === "live" && latency !== null && latency > 900
+    const effectiveState = timeline
+      ? "history"
+      : connection === "live" && latency !== null && latency > 900
         ? "stale"
         : connection;
     onTelemetry?.({
       state: effectiveState,
       epoch: frame?.epoch ?? null,
-      frameCount: payload?.frames.length ?? 0,
+      frameCount: timeline?.epochs.length ?? payload?.frames.length ?? 0,
       maximum: frame?.max ?? null,
       mean: frame?.mean ?? null,
-      latencySeconds: latency,
+      latencySeconds: timeline ? null : latency,
       qualityTecu:
         typeof frame?.source.qualityTecu === "number"
           ? frame.source.qualityTecu
@@ -428,7 +507,13 @@ export default function TecMap({
         (connection === "sample" ? "历史 SSR 样例" : "等待数据源"),
       mountpoint: frame?.source.mountpoint ?? DEFAULT_MOUNTPOINT,
     });
-  }, [connection, frame, onTelemetry, payload?.frames.length]);
+  }, [
+    connection,
+    frame,
+    onTelemetry,
+    payload?.frames.length,
+    timeline,
+  ]);
 
   const drawMap = useCallback(() => {
     const canvas = canvasRef.current;
@@ -594,6 +679,46 @@ export default function TecMap({
     });
   };
 
+  const loadHistoryDate = async () => {
+    setPlaying(false);
+    setHistoryLoading(true);
+    setHistoryMessage(`正在读取 ${historyDate} UTC 的归档索引…`);
+    try {
+      const nextTimeline = await readJson<TimelinePayload>(
+        `${API_BASE}/timeline.json?date=${encodeURIComponent(historyDate)}`,
+      );
+      if (!nextTimeline.epochs.length) {
+        setTimeline(null);
+        setHistoryFrame(null);
+        setHistoryMessage(
+          `${historyDate} UTC 暂无归档；Caster 无法倒播，需保证后台接收服务持续运行`,
+        );
+        return;
+      }
+      setTimeline(nextTimeline);
+      setHistoryIndex(nextTimeline.epochs.length - 1);
+      setHistoryFrame(null);
+      setHistoryMessage(
+        `${historyDate} UTC · ${nextTimeline.epochs.length} 个归档历元`,
+      );
+    } catch {
+      setTimeline(null);
+      setHistoryFrame(null);
+      setHistoryMessage("历史索引不可用，请检查实时归档服务");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const returnToLive = () => {
+    setTimeline(null);
+    setHistoryFrame(null);
+    setHistoryIndex(0);
+    setPlaying(true);
+    setHistoryMessage("已返回实时；服务器连续保存 7 天历元");
+    if (payload?.frames.length) setFrameIndex(payload.frames.length - 1);
+  };
+
   const selectMapPoint = async (
     event: ReactPointerEvent<HTMLCanvasElement>,
   ) => {
@@ -603,8 +728,11 @@ export default function TecMap({
     setSeriesLoading(true);
     setSeries(localSeries(payload, point.selection));
     try {
+      const historyQuery = timeline
+        ? `date=${encodeURIComponent(timeline.date)}`
+        : "hours=24";
       const remote = await readJson<SeriesPayload>(
-        `${API_BASE}/series.json?lat=${point.selection.lat}&lon=${point.selection.lon}&hours=24`,
+        `${API_BASE}/series.json?lat=${point.selection.lat}&lon=${point.selection.lon}&${historyQuery}`,
       );
       setSeries(remote);
     } catch {
@@ -754,14 +882,18 @@ export default function TecMap({
   };
 
   const latency = ageSeconds(frame?.epoch);
-  const effectiveConnection =
-    connection === "live" && latency !== null && latency > 900
+  const effectiveConnection: ConnectionState = timeline
+    ? "history"
+    : connection === "live" && latency !== null && latency > 900
       ? "stale"
       : connection;
   const sourceLabel =
     frame?.source.mountpoint ??
     frame?.source.file ??
     DEFAULT_MOUNTPOINT;
+  const controlCount =
+    timeline?.epochs.length ?? payload?.frames.length ?? 0;
+  const controlIndex = timeline ? historyIndex : frameIndex;
 
   return (
     <div
@@ -797,8 +929,37 @@ export default function TecMap({
         ) : null}
         <div className="map-corner-note">
           <span>GRID 2.5° × 5°</span>
-          <span>点击地图查看该点 24 h VTEC</span>
+          <span>
+            {timeline
+              ? `正在回放 ${timeline.date} UTC`
+              : "点击地图查看该点 24 h VTEC"}
+          </span>
         </div>
+      </div>
+
+      <div className="history-controls">
+        <label>
+          <span>历史回放 · UTC 日期</span>
+          <input
+            type="date"
+            value={historyDate}
+            max={utcDateLabel()}
+            onChange={(event) => setHistoryDate(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void loadHistoryDate()}
+          disabled={historyLoading}
+        >
+          {historyLoading ? "读取中…" : "读取当日"}
+        </button>
+        {timeline ? (
+          <button type="button" className="return-live" onClick={returnToLive}>
+            返回实时
+          </button>
+        ) : null}
+        <span>{historyMessage}</span>
       </div>
 
       <div className="map-controls">
@@ -807,12 +968,20 @@ export default function TecMap({
             type="button"
             onClick={() => {
               setPlaying(false);
-              setFrameIndex((value) =>
-                payload?.frames.length
-                  ? (value - 1 + payload.frames.length) %
-                    payload.frames.length
-                  : 0,
-              );
+              if (timeline?.epochs.length) {
+                setHistoryIndex(
+                  (value) =>
+                    (value - 1 + timeline.epochs.length) %
+                    timeline.epochs.length,
+                );
+              } else {
+                setFrameIndex((value) =>
+                  payload?.frames.length
+                    ? (value - 1 + payload.frames.length) %
+                      payload.frames.length
+                    : 0,
+                );
+              }
             }}
             aria-label="上一历元"
           >
@@ -829,11 +998,17 @@ export default function TecMap({
             type="button"
             onClick={() => {
               setPlaying(false);
-              setFrameIndex((value) =>
-                payload?.frames.length
-                  ? (value + 1) % payload.frames.length
-                  : 0,
-              );
+              if (timeline?.epochs.length) {
+                setHistoryIndex(
+                  (value) => (value + 1) % timeline.epochs.length,
+                );
+              } else {
+                setFrameIndex((value) =>
+                  payload?.frames.length
+                    ? (value + 1) % payload.frames.length
+                    : 0,
+                );
+              }
             }}
             aria-label="下一历元"
           >
@@ -843,21 +1018,20 @@ export default function TecMap({
         <input
           type="range"
           min="0"
-          max={Math.max(0, (payload?.frames.length ?? 1) - 1)}
-          value={Math.min(
-            frameIndex,
-            Math.max(0, (payload?.frames.length ?? 1) - 1),
-          )}
+          max={Math.max(0, controlCount - 1)}
+          value={Math.min(controlIndex, Math.max(0, controlCount - 1))}
           onChange={(event) => {
-            setFrameIndex(Number(event.target.value));
+            if (timeline) {
+              setHistoryIndex(Number(event.target.value));
+            } else {
+              setFrameIndex(Number(event.target.value));
+            }
             setPlaying(false);
           }}
-          aria-label="实时 GIM 历元"
+          aria-label={timeline ? "历史 GIM 历元" : "实时 GIM 历元"}
         />
         <span>
-          {payload?.frames.length
-            ? `${frameIndex + 1} / ${payload.frames.length}`
-            : "0 / 0"}
+          {controlCount ? `${controlIndex + 1} / ${controlCount}` : "0 / 0"}
         </span>
       </div>
 
