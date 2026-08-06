@@ -1,14 +1,57 @@
+"use client"; // 必须添加，因为使用了 useEffect 和 useRef
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import content from "../content/site-content.json";
 import { PageShell } from "./components/SiteChrome";
 import ProductSearch from "./components/ProductSearch";
 import TecMap from "./components/TecMap";
 
 export default function Home() {
+  // 用于存储所有 section 的 ref（可省略，直接用 querySelector）
+  const mainRef = useRef<HTMLElement>(null);
+
+ useEffect(() => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const el = entry.target;
+        if (entry.isIntersecting) {
+          // 进入视口：若处于退出状态，先重置到初始位置（无过渡）
+          if (el.classList.contains('exiting')) {
+            el.style.transition = 'none';
+            el.style.transform = 'translateY(40px)';
+            el.style.opacity = '0';
+            void el.offsetHeight; // 强制重排
+            el.style.transition = '';
+            el.style.transform = '';
+            el.style.opacity = '';
+            el.classList.remove('exiting');
+          }
+          el.classList.add('visible');
+        } else {
+          // 离开视口：若当前可见，切换为退出状态
+          if (el.classList.contains('visible')) {
+            el.classList.remove('visible');
+            el.classList.add('exiting');
+          }
+        }
+      });
+    },
+    {
+      threshold: 0.15,
+      rootMargin: '0px 0px -50px 0px',
+    }
+  );
+
+  document.querySelectorAll('.section-animate').forEach((el) => observer.observe(el));
+  return () => observer.disconnect();
+}, []);
   return (
     <PageShell>
-      <main>
-        <section className="hero">
+      <main ref={mainRef}>
+        {/* 1. Hero 区 */}
+        <section className="hero section-animate" style={{ transitionDelay: "0.1s" }}>
           <div className="hero-orbit orbit-one" /><div className="hero-orbit orbit-two" />
           <div className="hero-content">
             <p className="eyebrow"><span /> XI&apos;AN · CHINA / 34.23°N 108.93°E</p>
@@ -27,11 +70,15 @@ export default function Home() {
           <div className="hero-index">01 <span>/ 06</span></div>
         </section>
 
-        <section className="metrics-strip" aria-label="课题组概况">
-          {content.metrics.map((item) => <div key={item.label}><strong>{item.value}</strong><span>{item.label}</span></div>)}
+        {/* 2. Metrics 区 */}
+        <section className="metrics-strip section-animate" style={{ transitionDelay: "0.2s" }} aria-label="课题组概况">
+          {content.metrics.map((item) => (
+            <div key={item.label}><strong>{item.value}</strong><span>{item.label}</span></div>
+          ))}
         </section>
 
-        <section className="home-products section-pad">
+        {/* 3. 产品检索区 */}
+        <section className="home-products section-pad section-animate" style={{ transitionDelay: "0.3s" }}>
           <div className="section-heading split-heading">
             <div><p className="section-kicker">DATA SERVICES · 数据服务</p><h2>从观测到产品，<br />让电离层数据触手可及</h2></div>
             <p>参考 IGS 数据中心的检索逻辑，按产品类型和日期快速定位 XUST 全球电离层图与 DCB 产品。</p>
@@ -39,7 +86,8 @@ export default function Home() {
           <ProductSearch condensed />
         </section>
 
-        <section className="realtime-section section-pad">
+        {/* 4. 实时地图区 */}
+        <section className="realtime-section section-pad section-animate" style={{ transitionDelay: "0.4s" }}>
           <div className="section-heading split-heading light-heading">
             <div><p className="section-kicker">LIVE IONOSPHERE · 实时窗口</p><h2>全球电离层<br />总电子含量</h2></div>
             <div className="live-copy"><span className="live-pill"><i /> IONO00XAN1 实时数据流</span><p>地图沿用课题组 GIMdisplay 的全球等经纬投影、Turbo TEC 色带与高精度海岸线。后台实时接收 IGS SSR 4076.201，并将球谐系数展开为 2.5° × 5° GIM；点击网格可查看该点时间序列。</p></div>
@@ -51,31 +99,40 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="research-preview section-pad">
+        {/* 5. 科研方向区 */}
+        <section className="research-preview section-pad section-animate" style={{ transitionDelay: "0.5s" }}>
           <div className="section-heading"><p className="section-kicker">RESEARCH FOCUS · 科研方向</p><h2>跨越近地空间与地表形变的<br />多尺度观测研究</h2></div>
           <div className="research-grid">
-            {content.researchAreas.map((item) => <article key={item.code}>
-              <div className="research-no">{item.code}</div><p>{item.en}</p><h3>{item.title}</h3><div className="research-line" /><p className="research-desc">{item.description}</p>
-              <div className="tag-row">{item.keywords.map((tag) => <span key={tag}>{tag}</span>)}</div>
-            </article>)}
+            {content.researchAreas.map((item) => (
+              <article key={item.code}>
+                <div className="research-no">{item.code}</div><p>{item.en}</p><h3>{item.title}</h3><div className="research-line" /><p className="research-desc">{item.description}</p>
+                <div className="tag-row">{item.keywords.map((tag) => <span key={tag}>{tag}</span>)}</div>
+              </article>
+            ))}
           </div>
           <Link className="text-link" href="/research">查看研究项目与方法 →</Link>
         </section>
 
-        <section className="publication-feature section-pad">
+        {/* 6. 最新成果区 */}
+        <section className="publication-feature section-pad section-animate" style={{ transitionDelay: "0.6s" }}>
           <div className="feature-number">2026</div>
           <div className="feature-copy">
             <p className="section-kicker">SELECTED PUBLICATION · 最新成果</p>
             <h2>{content.publications[0].title}</h2>
             <p>{content.publications[0].authors}</p>
-            <div><strong>{content.publications[0].journal}</strong><span>{content.publications[0].tag}</span></div>
+            <div><strong>{content.publications[0].journal}</strong><span>{content.publications[0].tag}</span><span><a href={content.publications[0].link} target="_blank" rel="noreferrer">查看原文</a></span></div>
           </div>
           <Link className="feature-arrow" href="/publications" aria-label="查看学术成果">↗</Link>
         </section>
 
-        <section className="news-section section-pad">
+        {/* 7. 新闻动态区 */}
+        <section className="news-section section-pad section-animate" style={{ transitionDelay: "0.7s" }}>
           <div className="section-heading"><p className="section-kicker">LATEST · 团队动态</p><h2>最新进展</h2></div>
-          <div className="news-list">{content.news.map((item) => <div key={item.date + item.title}><time>{item.date}</time><span>{item.type}</span><strong>{item.title}</strong><i>↗</i></div>)}</div>
+          <div className="news-list">
+            {content.news.map((item) => (
+              <div key={item.date + item.title}><time>{item.date}</time><span>{item.type}</span><strong>{item.title}</strong><i>↗</i></div>
+            ))}
+          </div>
         </section>
       </main>
     </PageShell>

@@ -8,7 +8,7 @@
     "description": "面向空间天气监测与高精度定位需求，开展全球电离层精细建模、GNSS近地空间环境监测、多源数据融合与InSAR应用研究。",
     "email": "chenpeng0123@gmail.com",
     "address": "陕西省西安市雁塔路58号",
-    "teacherProfile": "https://chxy.xust.edu.cn/info/1170/5020.htm",
+    "teacherProfile": "https://chxy.xust.edu.cn/info/1014/1825.htm",
     "collegeUrl": "https://chxy.xust.edu.cn/",
     "productCloud": "http://8.130.47.186/"
   },
@@ -56,10 +56,17 @@
     "roles": ["IAG JWG 4.3.6 工作组成员", "IAG JWG 4.3.7 工作组成员", "陕西省测绘地理信息标准化技术委员会委员"]
   },
   "students": [
-    { "cohort": "2026级", "names": ["刘海斌", "樊志通", "杜佳星", "郑博元", "王润泽"], "note": "本硕连读" },
-    { "cohort": "2025级", "names": ["陈洋", "关星瑶", "程奥东", "张宏", "周冬梅"], "note": "硕士研究生" },
-    { "cohort": "2024级", "names": ["李明冬", "苏弘扬", "魏育航", "陈泽瑜"], "note": "硕士研究生" },
-    { "cohort": "2023级", "names": ["黄缤漪", "洪扬", "孙世峥", "马卓尔"], "note": "硕士研究生" }
+    { "cohort": "2026级(在读)", "names": ["刘海斌", "樊志通", "杜佳星", "郑博元", "王润泽"], "note": "硕士研究生" },
+    { "cohort": "2025级(在读)", "names": ["陈洋", "关星瑶", "程奥东", "张宏", "周冬梅"], "note": "硕士研究生" },
+    { "cohort": "2024级(在读)", "names": ["李明冬", "苏弘扬", "魏育航", "陈泽瑜"], "note": "硕士研究生" },
+    { "cohort": "2023级", "names": ["黄缤漪", "洪扬", "孙世峥", "马卓尔"], "note": "硕士研究生" },
+    { "cohort": "2022级", "names": ["张诚", "朱成昌", "张宇宸", "鲁杰瑞", "毋梦艳", "杨新越", "张溪桐(硕博连读)"], "note": "硕士研究生" },
+    { "cohort": "2021级", "names": ["邱梁才", "熊明珠", "唐辅材", "陈浩"], "note": "硕士研究生" },
+    { "cohort": "2020级", "names": ["王容", "安致远", "王志豪"], "note": "硕士研究生" },
+    { "cohort": "2019级", "names": ["杨雪滢"], "note": "硕士研究生" },
+    { "cohort": "2018级", "names": ["李政", "郑乃铨", "刘丽霞"], "note": "硕士研究生" },
+    { "cohort": "2017级", "names": ["刘航", "马永超"], "note": "硕士研究生" }
+    
   ],
   "publications": [
     {
@@ -67,56 +74,64 @@
       "title": "Water storage changes of lakes and reservoirs across Asia (2018–2023) and their effects in flood control",
       "authors": "An, Z., Li, Z., Jin, T., Jiang, W., Yuan, P., Liu, K., … & Chen, P.",
       "journal": "Geophysical Research Letters",
-      "tag": "Nature Index"
+      "tag": "Nature Index",
+      "link": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2025GL119131"
     },
     {
       "year": 2025,
       "title": "Characterizing ionospheric disturbances and hemispheric differences over the Asia-Pacific during the May 2024 geomagnetic storm leveraging multi-instrumental observations",
       "authors": "Su, H., Chen, P.*, Liu, H., Yao, Y., Li, Z., Zhang, Y., … & Li, M.",
       "journal": "Journal of Geophysical Research: Space Physics",
-      "tag": "SCI"
+      "tag": "SCI",
+      "link": "https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2025JA034432"
     },
     {
       "year": 2025,
       "title": "Response of the ionosphere to the total solar eclipse in the United States on April 8, 2024",
       "authors": "Yang, X., Chen, P.*, Yao, Y., & Wu, M.",
       "journal": "Advances in Space Research",
-      "tag": "SCI"
+      "tag": "SCI",
+      "link": "https://www.sciencedirect.com/science/article/abs/pii/S0273117725008403"
     },
     {
       "year": 2024,
       "title": "A new method for global ionospheric real-time modeling integrating ionospheric VTEC short-term forecast results",
       "authors": "Chen, P.*, Wang, R., Yao, Y., Xiong, M., Zhang, Y., & Yang, X.",
       "journal": "Journal of Geodesy",
-      "tag": "TOP"
+      "tag": "TOP",
+      "link": "https://link.springer.com/article/10.1007/s00190-024-01911-9"
     },
     {
       "year": 2023,
       "title": "A short-term prediction model of global ionospheric VTEC based on the combination of long short-term memory and convolutional long short-term memory",
       "authors": "Chen, P.*, Wang, R., Yao, Y., An, Z., & Wang, Z.",
       "journal": "Journal of Geodesy",
-      "tag": "TOP"
+      "tag": "TOP",
+      "link": "https://link.springer.com/article/10.1007/s00190-023-01744-y"
     },
     {
       "year": 2021,
       "title": "Near real-time global ionospheric modeling based on an adaptive Kalman filter state error covariance matrix determination method",
       "authors": "Chen, P.*, Liu, H., Schmidt, M., Yao, Y., & Yao, W.",
       "journal": "IEEE Transactions on Geoscience and Remote Sensing",
-      "tag": "TOP"
+      "tag": "TOP",
+      "link": "https://ieeexplore.ieee.org/document/9469885"
     },
     {
       "year": 2021,
       "title": "Accuracy evaluation of XUST’s global ionospheric products",
       "authors": "Chen, P.*, Liu, L., Liu, H., & Yao, W.",
       "journal": "Advances in Space Research",
-      "tag": "SCI"
+      "tag": "SCI",
+      "link": "https://www.sciencedirect.com/science/article/abs/pii/S0273117721001885"
     },
     {
       "year": 2017,
       "title": "Global ionosphere maps based on GNSS, satellite altimetry, radio occultation and DORIS",
       "authors": "Chen, P.*, Yao, Y., & Yao, W.",
       "journal": "GPS Solutions",
-      "tag": "TOP"
+      "tag": "TOP",
+      "link": "https://link.springer.com/article/10.1007/s10291-016-0554-9"
     }
   ],
   "projects": [

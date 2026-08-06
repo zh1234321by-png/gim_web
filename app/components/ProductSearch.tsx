@@ -53,8 +53,23 @@ export default function ProductSearch({ condensed = false }: { condensed?: boole
     } else {
       setDate("2024-01-01");
     }
+    
   };
-
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const newDate = e.target.value;
+  if (mode === "archive") {
+    const min = new Date("2000-01-01");
+    const max = new Date("2025-12-31");
+    const selected = new Date(newDate);
+    if (selected < min || selected > max) {
+      // 自动修正为允许范围内的日期（可设置为边界或保留原值）
+      // 这里我们简单拒绝更改，保持原日期不变
+      return;
+    }
+  }
+  setDate(newDate);
+};
+const today = new Date().toLocaleDateString('en-CA');
   return (
     <section className={`product-search ${condensed ? "condensed-search" : ""}`} aria-label="电离层产品检索">
       <div className="search-tabs" role="tablist" aria-label="产品时效">
@@ -65,7 +80,7 @@ export default function ProductSearch({ condensed = false }: { condensed?: boole
       </div>
       <div className="search-fields">
         <label><span>产品类型</span><select value={kind} onChange={(e) => setKind(e.target.value)}>{content.product.formats.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-        <label><span>产品日期</span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min="2024-01-01" /></label>
+        <label><span>产品日期</span><input type="date" value={date} onChange={handleDateChange} min={mode === "archive" ? "2000-01-01" : "2026-07-23"} max={mode === "archive" ? "2025-12-31" : today}/></label>
         <button className="search-button" type="button" onClick={runSearch}>检索产品 <span aria-hidden="true">→</span></button>
       </div>
       {searched && <div className="search-results" aria-live="polite">
