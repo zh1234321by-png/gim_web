@@ -127,12 +127,7 @@ export default function Home() {
 
         {/* 7. 新闻动态区 */}
         <section className="news-section section-pad section-animate" style={{ transitionDelay: "0.7s" }}>
-          <div className="section-heading"><p className="section-kicker">LATEST · 团队动态</p><h2>最新进展</h2></div>
-          <div className="news-list">
-            {content.news.map((item) => (
-              <div key={item.date + item.title}><time>{item.date}</time><span>{item.type}</span><strong>{item.title}</strong><i>↗</i></div>
-            ))}
-          </div>
+         
         </section>
       </main>
     </PageShell>
