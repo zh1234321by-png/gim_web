@@ -114,17 +114,7 @@ export default function Home() {
         </section>
 
         {/* 6. 最新成果区 */}
-        <section className="publication-feature section-pad section-animate" style={{ transitionDelay: "0.6s" }}>
-          <div className="feature-number">2026</div>
-          <div className="feature-copy">
-            <p className="section-kicker">SELECTED PUBLICATION · 最新成果</p>
-            <h2>{content.publications[0].title}</h2>
-            <p>{content.publications[0].authors}</p>
-            <div><strong>{content.publications[0].journal}</strong><span>{content.publications[0].tag}</span><span><a href={content.publications[0].link} target="_blank" rel="noreferrer">查看原文</a></span></div>
-          </div>
-          <Link className="feature-arrow" href="/publications" aria-label="查看学术成果">↗</Link>
-        </section>
-
+       
         {/* 7. 新闻动态区 */}
         <section className="news-section section-pad section-animate" style={{ transitionDelay: "0.7s" }}>
          
