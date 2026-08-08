@@ -75,7 +75,7 @@ const today = new Date().toLocaleDateString('en-CA');
       <div className="search-tabs" role="tablist" aria-label="产品时效">
         <button type="button" className={mode === "archive" ? "active" : ""} onClick={() => selectMode("archive")}>事后产品</button>
         <button type="button" className={mode === "realtime" ? "active" : ""} onClick={() => selectMode("realtime")}>
-          实时产品 <span className="mini-badge live-badge">已上线</span>
+          实时产品 
         </button>
       </div>
       <div className="search-fields">

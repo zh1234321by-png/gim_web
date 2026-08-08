@@ -18,7 +18,7 @@ export default function ProductsPage() {
       <div><p className="section-kicker">FILE NAMING · 文件命名</p><h2>兼容 IGS 产品规范</h2><p>目录按“年份 / 年积日”组织；主页检索器会自动将公历日期转换为年积日并生成下载地址。</p></div>
       <div className="code-list"><code>XAN1OPSRTS_20262040000_01D_05M_GIM.INX.gz</code><code>XAN0MGXRAP_20262040000_01D_01D_DCB.BSX.gz</code><code>xan26204.ION.gz</code></div>
     </section>
-    <section className="page-section tool-banner"><div><p className="section-kicker">ANALYSIS TOOL · 分析工具</p><h2>使用完整 GIMdisplay</h2><p>上传 IONEX 文件，查看 TEC 动画、产品对比、差值统计与时间序列。</p></div><a className="button primary" href="/tools/gim-viewer.html" target="_blank">打开分析工具 ↗</a></section>
-    <section className="source-note">产品源：<a href={content.site.productCloud} target="_blank" rel="noreferrer">{content.site.productCloud}</a> · 当前目录状态以产品云为准。</section>
+    
+    <section className="page-section tool-banner"><a href={content.site.productCloud} target="_blank" rel="noreferrer">产品源：{content.site.productCloud}</a> <a>· 当前目录状态以产品云为准。</a></section>
   </main></PageShell>;
 }

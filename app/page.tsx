@@ -59,7 +59,7 @@ export default function Home() {
             <p className="hero-lead">{content.site.description}</p>
             <div className="hero-actions">
               <Link className="button primary" href="/products">访问数据产品 <span>→</span></Link>
-              <Link className="button ghost" href="/research">了解科研方向</Link>
+              <Link className="button ghost" href="/team">了解课题组团队</Link>
             </div>
           </div>
           <div className="hero-signal" aria-hidden="true">

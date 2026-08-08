@@ -54,7 +54,7 @@ export function Footer() {
           <p className="footer-links">
             <a href={content.site.teacherProfile} target="_blank" rel="noreferrer">陈鹏老师主页 ↗</a>
             <a href={content.site.collegeUrl} target="_blank" rel="noreferrer">测绘科学与技术学院 ↗</a>
-            <a href="/tools/gim-viewer.html" target="_blank" rel="noreferrer">GIM 分析工具 ↗</a>
+             
           </p>
         </div>
       </div>
