@@ -1,6 +1,4 @@
-// app/api/ionex-proxy/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { gzipSync } from 'zlib';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -11,11 +9,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1. 拉取数据（根据目标可能需要设置 User-Agent 等）
     const upstream = await fetch(target, {
       headers: {
         'Accept': 'text/plain, */*',
-        // 有些服务器会拒绝无 User-Agent 的请求
         'User-Agent': 'Mozilla/5.0 (compatible; IonexProxy/1.0)',
       },
     });
@@ -27,18 +23,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 2. 获取文本
     const text = await upstream.text();
 
-    // 3. 使用 zlib 压缩（同步方法，简单可靠）
-    const compressed = gzipSync(text);
+    // 使用 CompressionStream 替代 zlib
+    const encoder = new TextEncoder();
+    const stream = new Blob([text])
+      .stream()
+      .pipeThrough(new CompressionStream('gzip'));
 
-    // 4. 返回 gzip 二进制数据
-    return new NextResponse(compressed, {
+    const compressedBuffer = await new Response(stream).arrayBuffer();
+
+    return new NextResponse(compressedBuffer, {
       headers: {
         'Content-Type': 'application/gzip',
         'Content-Encoding': 'gzip',
-        // 可选：添加 CORS 头（其实同源不需要，但无妨）
         'Access-Control-Allow-Origin': '*',
       },
     });
