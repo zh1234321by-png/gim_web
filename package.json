@@ -6,11 +6,11 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
-    "build": "vinext build",
+    "dev": "next dev",
+    "build": "next build",
     "postinstall": "node scripts/fix-vinext-windows.mjs",
     "prestart": "node scripts/fix-vinext-windows.mjs",
-    "start": "vinext start",
+    "start": "next start",
     "test": "pnpm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
@@ -19,9 +19,9 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@vercel/speed-insights": "^2.0.0",
     "drizzle-orm": "0.45.2",
-    "next": "16.2.6",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -41,5 +41,20 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module"
+  "type": "module",
+  "description": "西安科技大学测绘科学与技术学院空间环境与地质灾害监测课题组网站。",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zh1234321by-png/gim_web.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/zh1234321by-png/gim_web/issues"
+  },
+  "homepage": "https://github.com/zh1234321by-png/gim_web#readme"
 }
