@@ -25,8 +25,6 @@ export async function GET(request: NextRequest) {
 
     const text = await upstream.text();
 
-    // 使用 CompressionStream 替代 zlib
-    const encoder = new TextEncoder();
     const stream = new Blob([text])
       .stream()
       .pipeThrough(new CompressionStream('gzip'));

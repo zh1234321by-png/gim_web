@@ -1,58 +1,46 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "segm-web",
   "version": "0.1.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
-    "build": "vinext build",
-    "postinstall": "node scripts/fix-vinext-windows.mjs",
-    "prestart": "node scripts/fix-vinext-windows.mjs",
-    "start": "vinext start",
-    "test": "pnpm run build && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "@vercel/speed-insights": "^2.0.0",
-    "drizzle-orm": "0.45.2",
     "next": "^16.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.2",
-    "@vitejs/plugin-rsc": "0.5.26",
-    "@vitejs/plugin-vue-jsx": "^5.1.6",
-    "drizzle-kit": "0.31.10",
+    "@types/react-dom": "^19.2.0",
+    "autoprefixer": "^10.5.4",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
-    "tailwindcss": "4.2.1",
-    "typescript": "5.9.3",
-    "vinext": "0.0.50",
-    "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "5.9.3"
   },
   "type": "module",
   "description": "西安科技大学测绘科学与技术学院空间环境与地质灾害监测课题组网站。",
-  "main": "index.js",
-  "directories": {
-    "example": "examples",
-    "test": "tests"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zh1234321by-png/gim_web.git"
   },
-  "keywords": [],
+  "keywords": [
+    "SEGM",
+    "电离层",
+    "GNSS",
+    "遥感",
+    "西安科技大学"
+  ],
   "bugs": {
     "url": "https://github.com/zh1234321by-png/gim_web/issues"
   },

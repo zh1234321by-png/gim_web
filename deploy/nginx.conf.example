@@ -1,0 +1,78 @@
+# ============================================================
+# SEGM 课题组网站 - Nginx 配置示例
+# 
+# 使用场景：
+#   - 需要 80/443 端口访问时
+#   - 需要配置 HTTPS/SSL 时
+#   - 需要负载均衡时
+#
+# 如果直接用 Node.js 监听 5200 端口，可不需要 Nginx
+# ============================================================
+
+# HTTP 配置（重定向到 HTTPS）
+server {
+    listen 80;
+    server_name 8.130.47.186;  # 替换为实际域名或 IP
+
+    # 重定向到 HTTPS（如果配置了 SSL）
+    # return 301 https://$server_name$request_uri;
+
+    # 或者直接代理到 Node.js 服务
+    location / {
+        proxy_pass http://127.0.0.1:5200;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # 静态文件缓存（可选，提升性能）
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:5200;
+        proxy_cache_valid 200 7d;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # 事后产品目录（如果需要 Nginx 提供静态文件）
+    # location /post_iono/ {
+    #     alias /mnt/disk1/post_iono/;
+    #     autoindex on;
+    # }
+
+    # 实时产品目录
+    # location /rt_iono/ {
+    #     alias /mnt/disk1/rt_iono/;
+    #     autoindex on;
+    # }
+}
+
+# HTTPS 配置（需要 SSL 证书时使用）
+# server {
+#     listen 443 ssl http2;
+#     server_name 8.130.47.186;  # 替换为实际域名
+#
+#     # SSL 证书路径
+#     ssl_certificate /etc/nginx/ssl/cert.pem;
+#     ssl_certificate_key /etc/nginx/ssl/key.pem;
+#
+#     # SSL 优化
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:5200;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection 'upgrade';
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_cache_bypass $http_upgrade;
+#     }
+# }
