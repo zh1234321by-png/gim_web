@@ -15,7 +15,7 @@ export default function Home() {
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        const el = entry.target;
+        const el = entry.target as HTMLElement;
         if (entry.isIntersecting) {
           // 进入视口：若处于退出状态，先重置到初始位置（无过渡）
           if (el.classList.contains('exiting')) {

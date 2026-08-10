@@ -40,7 +40,7 @@ type GimFrame = {
 
 type FramesPayload = {
   schema: string;
-  status: "live" | "sample";
+  status: "live" | "sample" | "history";
   generatedAt: string;
   grid: GridMetadata;
   frames: GimFrame[];
